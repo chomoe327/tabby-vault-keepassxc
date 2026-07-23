@@ -19,8 +19,9 @@ export function loadSettings (platform: PlatformService): KeePassXCPluginSetting
         }
         const parsed = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as Partial<KeePassXCPluginSettings>
         return {
-            ...defaults,
-            ...parsed,
+            enabled: parsed.enabled ?? defaults.enabled,
+            entryUrl: parsed.entryUrl ?? defaults.entryUrl,
+            waitForUnlock: parsed.waitForUnlock ?? defaults.waitForUnlock,
         }
     } catch (e) {
         return defaults

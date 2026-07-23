@@ -1,7 +1,7 @@
 {
   "name": "tabby-vault-keepassxc",
-  "version": "0.1.0",
-  "description": "Automatically unlock Tabby Vault using KeePassXC Browser Integration.",
+  "version": "1.0.1",
+  "description": "Automatically unlock Tabby Vault using KeePassXC Browser Integration (macOS, Windows, Linux).",
   "keywords": [
     "tabby-plugin",
     "terminus-plugin"
@@ -11,14 +11,31 @@
   "scripts": {
     "build": "webpack --progress --color --mode=production",
     "watch": "webpack --progress --color --watch",
-    "prepublishOnly": "npm run build",
-    "deploy:local-tabby": "pnpm run build && PLUGIN_DIR=\"$HOME/Library/Application Support/tabby/plugins/node_modules/tabby-vault-keepassxc\" && mkdir -p \"$PLUGIN_DIR/dist\" && cp dist/index.js dist/index.js.LICENSE.txt \"$PLUGIN_DIR/dist/\" && cp package.json \"$PLUGIN_DIR/\" && rm -f \"$PLUGIN_DIR/index.js\" \"$PLUGIN_DIR/index.js.LICENSE.txt\""
+    "prepublishOnly": "pnpm run build",
+    "deploy:local-tabby": "pnpm run build && PLUGIN_DIR=\"$HOME/Library/Application Support/tabby/plugins/node_modules/tabby-vault-keepassxc\" && mkdir -p \"$PLUGIN_DIR/dist\" && cp dist/index.js \"$PLUGIN_DIR/dist/\" && (test -f dist/index.js.LICENSE.txt && cp dist/index.js.LICENSE.txt \"$PLUGIN_DIR/dist/\" || true) && cp package.json \"$PLUGIN_DIR/\" && rm -f \"$PLUGIN_DIR/index.js\" \"$PLUGIN_DIR/index.js.LICENSE.txt\""
   },
   "files": [
     "dist"
   ],
   "author": "chomoe327",
   "license": "MIT",
+  "support_url": "https://github.com/chomoe327/tabby-vault-keepassxc",
+  "github_url": "https://github.com/chomoe327/tabby-vault-keepassxc",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chomoe327/tabby-vault-keepassxc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chomoe327/tabby-vault-keepassxc/issues"
+  },
+  "homepage": "https://github.com/chomoe327/tabby-vault-keepassxc#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "dependencies": {
+    "tweetnacl": "^1.0.3"
+  },
   "devDependencies": {
     "@angular/animations": "^7.2.8",
     "@angular/common": "^7.2.8",

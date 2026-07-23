@@ -1,8 +1,7 @@
 export interface KeePassXCOptions {
-    cliPath?: string
     waitForUnlock?: boolean
-    associationFile?: string
     timeoutMs?: number
+    socketPath?: string
 }
 
 export interface KeePassXCConnectionResult {
@@ -11,7 +10,8 @@ export interface KeePassXCConnectionResult {
 }
 
 export interface KeePassXCClient {
-    getPassword (url: string, options: KeePassXCOptions): Promise<string | null>
-    testConnection (options: KeePassXCOptions): Promise<KeePassXCConnectionResult>
+    getPassword (url: string, options?: KeePassXCOptions): Promise<string | null>
+    testConnection (options?: KeePassXCOptions): Promise<KeePassXCConnectionResult>
+    associate (options?: KeePassXCOptions): Promise<KeePassXCConnectionResult>
     isAvailable (): Promise<boolean>
 }

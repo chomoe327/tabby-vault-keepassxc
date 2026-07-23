@@ -9,7 +9,7 @@ import { KeePassXCSettingsTabProvider } from './settings'
 import { KeePassXCSettingsComponent } from './components/keepassxc-settings.component'
 import { ToggleComponent } from './components/toggle.component'
 import { CheckboxComponent } from './components/checkbox.component'
-import { KeePassXCCliClient } from './services/keepassxc-cli.client'
+import { KeePassXCNativeClient } from './services/keepassxc-native.client'
 import { VaultPassphraseBridge } from './services/vault-passphrase-bridge.service'
 import { loadSettings } from './utils/settings-store'
 import Logger from './utils/logger'
@@ -53,7 +53,7 @@ export default class TabbyVaultKeePassXCModule {
 
             const vault = this.injector.get(core.VaultService)
             const settings = loadSettings(this.platform)
-            const client = new KeePassXCCliClient()
+            const client = new KeePassXCNativeClient(this.platform)
             this.bridge = new VaultPassphraseBridge(this.platform, this.toast)
             this.bridge.install(vault, client, settings)
             void this.bridge.preflightCheck(client, settings)

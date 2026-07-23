@@ -21,42 +21,10 @@ h3([textContent]='translate.trans("settings.title")')
         .form-line
             .header
                 .title
-                    i.fas.fa-fw.fa-terminal.mr-2
-                    span([textContent]='translate.trans("settings.cli_path")')
-            input.form-control([(ngModel)]='settings.cliPath', type='text', [placeholder]='detectedCliPath')
-            small.text-muted([textContent]='translate.trans("settings.cli_path_hint")')
-
-        .form-line
-            .header
-                .title
                     i.fas.fa-fw.fa-lock-open.mr-2
                     span([textContent]='translate.trans("settings.wait_for_unlock")')
             toggle([(ngModel)]='settings.waitForUnlock')
             small.text-muted([textContent]='translate.trans("settings.wait_for_unlock_hint")')
-
-        .form-line
-            .header
-                .title
-                    i.fas.fa-fw.fa-clock.mr-2
-                    span([textContent]='translate.trans("settings.remember_minutes")')
-            select.form-control([(ngModel)]='settings.rememberMinutes')
-                option(*ngFor='let item of rememberOptions', [ngValue]='item.value') {{ transOption(item) }}
-
-        .form-line
-            .header
-                .title
-                    i.fas.fa-fw.fa-random.mr-2
-                    span([textContent]='translate.trans("settings.fallback")')
-            select.form-control([(ngModel)]='settings.fallback')
-                option(*ngFor='let item of fallbackOptions', [ngValue]='item.value') {{ transOption(item) }}
-
-        .form-line
-            .header
-                .title
-                    i.fas.fa-fw.fa-file.mr-2
-                    span([textContent]='translate.trans("settings.association_file")')
-            input.form-control([(ngModel)]='settings.associationFile', type='text', [placeholder]='defaultAssociationHint()')
-            small.text-muted([textContent]='translate.trans("settings.association_file_hint")')
 
         .form-line.association-status
             .header
@@ -69,9 +37,9 @@ h3([textContent]='translate.trans("settings.title")')
             button.btn.btn-primary.mr-2(type='button', (click)='saveSettings()', [disabled]='saving')
                 i.fas.fa-save.mr-1
                 span([textContent]='translate.trans("settings.save")')
+            button.btn.btn-warning.mr-2(type='button', (click)='associateWithKeePassXC()', [disabled]='associating')
+                i.fas.fa-link.mr-1
+                span([textContent]='translate.trans("settings.associate")')
             button.btn.btn-secondary.mr-2(type='button', (click)='testFetch()', [disabled]='testing')
                 i.fas.fa-vial.mr-1
                 span([textContent]='translate.trans("settings.test_fetch")')
-            button.btn.btn-outline-secondary(type='button', (click)='clearCachedPassphrase()')
-                i.fas.fa-eraser.mr-1
-                span([textContent]='translate.trans("settings.clear_cache")')

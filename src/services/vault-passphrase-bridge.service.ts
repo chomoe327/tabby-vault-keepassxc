@@ -4,17 +4,17 @@ import Lang from '../data/lang'
 import { KeePassXCPluginSettings } from '../data/defaults'
 import Logger from '../utils/logger'
 import { loadSettings } from '../utils/settings-store'
-import { KeePassXCClient } from './keepassxc-client.interface'
+import {
+    KeePassXCClient,
+    KeePassXCConnectionResult,
+    KeePassXCOptions,
+} from './keepassxc-client.interface'
+import { KeePassXCNativeClient } from './keepassxc-native.client'
+import { hasAssociation } from '../utils/association-store'
 
 interface TabbyVaultLike {
     getPassphrase (): Promise<string>
     forgetPassphrase? (): void
-    isOpen? (): boolean
-}
-
-interface CachedPassphrase {
-    value: string
-    expiresAt: number
 }
 
 function serializeAsync<T> (fn: () => Promise<T>): () => Promise<T> {
@@ -30,12 +30,8 @@ export class VaultPassphraseBridge {
     private static instance: VaultPassphraseBridge | null = null
 
     private vault: TabbyVaultLike | null = null
-    private client: KeePassXCClient | null = null
+    private client: KeePassXCNativeClient | null = null
     private originalGetPassphrase: (() => Promise<string>) | null = null
-    private cache: CachedPassphrase | null = null
-    private rememberTimer: ReturnType<typeof setTimeout> | null = null
-    private lastServedAt = 0
-    private retryWindowMs = 5000
     private serializedFetch: (() => Promise<string>) | null = null
     private logger: Logger
 
@@ -53,7 +49,7 @@ export class VaultPassphraseBridge {
 
     install (vault: TabbyVaultLike, client: KeePassXCClient, _settings: KeePassXCPluginSettings): void {
         this.vault = vault
-        this.client = client
+        this.client = client as KeePassXCNativeClient
         this.originalGetPassphrase = vault.getPassphrase.bind(vault)
 
         const fetchPassphrase = async (): Promise<string> => {
@@ -77,13 +73,11 @@ export class VaultPassphraseBridge {
         }
     }
 
-    clearCache (): void {
-        this.clearRememberTimer()
-        this.cache = null
-        this.lastServedAt = 0
-        if (this.vault?.forgetPassphrase) {
-            this.vault.forgetPassphrase()
+    async performAssociate (settings: KeePassXCPluginSettings): Promise<KeePassXCConnectionResult> {
+        if (!this.client) {
+            return { ok: false, message: 'KeePassXC client unavailable' }
         }
+        return this.client.associate(this.toClientOptions(settings))
     }
 
     async testFetch (settings: KeePassXCPluginSettings): Promise<boolean> {
@@ -95,15 +89,14 @@ export class VaultPassphraseBridge {
     }
 
     async getAssociationStatus (settings: KeePassXCPluginSettings): Promise<'ok' | 'fail' | 'unknown'> {
+        if (!hasAssociation(this.platform)) {
+            return 'unknown'
+        }
         if (!this.client) {
             return 'unknown'
         }
         const result = await this.client.testConnection(this.toClientOptions(settings))
         return result.ok ? 'ok' : 'fail'
-    }
-
-    reloadSettings (): KeePassXCPluginSettings {
-        return loadSettings(this.platform)
     }
 
     private async resolvePassphrase (): Promise<string> {
@@ -113,68 +106,12 @@ export class VaultPassphraseBridge {
             return this.callOriginal()
         }
 
-        if (this.isRetryAfterFailure()) {
-            this.logger.log('Passphrase requested again shortly after previous attempt; clearing cache and falling back', 'warn')
-            this.clearCache()
-            return this.handleFallback(settings)
-        }
-
-        const cached = this.getCachedPassphrase(settings)
-        if (cached) {
-            this.lastServedAt = Date.now()
-            return cached
-        }
-
         const password = await this.fetchFromKeePassXC(settings)
         if (password) {
-            this.setCachedPassphrase(password, settings)
-            this.lastServedAt = Date.now()
             return password
         }
 
-        return this.handleFallback(settings)
-    }
-
-    private isRetryAfterFailure (): boolean {
-        if (!this.cache || !this.lastServedAt) {
-            return false
-        }
-        return Date.now() - this.lastServedAt < this.retryWindowMs
-    }
-
-    private getCachedPassphrase (settings: KeePassXCPluginSettings): string | null {
-        if (!this.cache) {
-            return null
-        }
-        if (settings.rememberMinutes <= 0) {
-            return null
-        }
-        if (Date.now() >= this.cache.expiresAt) {
-            this.clearCache()
-            return null
-        }
-        return this.cache.value
-    }
-
-    private setCachedPassphrase (password: string, settings: KeePassXCPluginSettings): void {
-        this.clearRememberTimer()
-        if (settings.rememberMinutes <= 0) {
-            this.cache = null
-            return
-        }
-        const expiresAt = Date.now() + settings.rememberMinutes * 60 * 1000
-        this.cache = { value: password, expiresAt }
-        this.rememberTimer = setTimeout(() => {
-            this.logger.log('Remember timeout reached; clearing cached passphrase')
-            this.clearCache()
-        }, settings.rememberMinutes * 60 * 1000)
-    }
-
-    private clearRememberTimer (): void {
-        if (this.rememberTimer) {
-            clearTimeout(this.rememberTimer)
-            this.rememberTimer = null
-        }
+        return this.handleFallback()
     }
 
     private async fetchFromKeePassXC (settings: KeePassXCPluginSettings): Promise<string | null> {
@@ -184,7 +121,7 @@ export class VaultPassphraseBridge {
 
         const available = await this.client.isAvailable()
         if (!available) {
-            this.logger.log('KeePassXC is not running', 'warn')
+            this.logger.log('KeePassXC is not running or browser integration unavailable', 'warn')
             this.toast.warning(Lang.trans('settings.keepassxc_not_running'), undefined, { timeOut: 6000 })
             return null
         }
@@ -197,11 +134,7 @@ export class VaultPassphraseBridge {
         return password
     }
 
-    private async handleFallback (settings: KeePassXCPluginSettings): Promise<string> {
-        if (settings.fallback === 'error') {
-            throw new Error(Lang.trans('settings.fetch_failed'))
-        }
-
+    private async handleFallback (): Promise<string> {
         this.logger.log('Falling back to Tabby unlock modal', 'info')
         this.toast.info(Lang.trans('settings.fetch_failed'), undefined, { timeOut: 5000 })
         return this.callOriginal()
@@ -214,11 +147,9 @@ export class VaultPassphraseBridge {
         return this.originalGetPassphrase()
     }
 
-    private toClientOptions (settings: KeePassXCPluginSettings) {
+    private toClientOptions (settings: KeePassXCPluginSettings): KeePassXCOptions {
         return {
-            cliPath: settings.cliPath,
             waitForUnlock: settings.waitForUnlock,
-            associationFile: settings.associationFile,
         }
     }
 }

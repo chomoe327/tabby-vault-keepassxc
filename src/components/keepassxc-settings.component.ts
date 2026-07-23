@@ -3,10 +3,10 @@ import { ConfigService, PlatformService, BaseComponent } from 'terminus-core'
 import { ToastrService } from 'ngx-toastr'
 import { Subscription } from 'rxjs'
 import Lang from '../data/lang'
-import { DEFAULT_SETTINGS, FALLBACK_OPTIONS, KeePassXCPluginSettings, REMEMBER_MINUTE_OPTIONS } from '../data/defaults'
+import { DEFAULT_SETTINGS, KeePassXCPluginSettings } from '../data/defaults'
 import { loadSettings, saveSettings } from '../utils/settings-store'
 import { VaultPassphraseBridge } from '../services/vault-passphrase-bridge.service'
-import { DEFAULT_ASSOCIATION_FILE, resolveCliPath } from '../services/keepassxc-cli.client'
+import { hasAssociation } from '../utils/association-store'
 
 /** @hidden */
 @Component({
@@ -15,13 +15,11 @@ import { DEFAULT_ASSOCIATION_FILE, resolveCliPath } from '../services/keepassxc-
 })
 export class KeePassXCSettingsComponent extends BaseComponent implements OnInit, OnDestroy {
     translate = Lang
-    rememberOptions = REMEMBER_MINUTE_OPTIONS
-    fallbackOptions = FALLBACK_OPTIONS
 
     settings: KeePassXCPluginSettings = { ...DEFAULT_SETTINGS }
-    detectedCliPath = ''
     associationStatus: 'ok' | 'fail' | 'unknown' = 'unknown'
     testing = false
+    associating = false
     saving = false
 
     private configSubscription: Subscription
@@ -40,7 +38,6 @@ export class KeePassXCSettingsComponent extends BaseComponent implements OnInit,
         this.refreshLocale()
         this.configSubscription = this.config.changed$.subscribe(() => this.refreshLocale())
         this.settings = loadSettings(this.platform)
-        this.detectedCliPath = resolveCliPath(this.settings.cliPath) || 'keepassxc-proxy-getpw'
         void this.refreshAssociationStatus()
     }
 
@@ -52,11 +49,12 @@ export class KeePassXCSettingsComponent extends BaseComponent implements OnInit,
         Lang.refreshLocale(this.platform, this.config)
     }
 
-    transOption (option: { label: { en: string, zh: string } }): string {
-        return Lang.transOption(option)
-    }
-
     async refreshAssociationStatus (): Promise<void> {
+        if (!hasAssociation(this.platform)) {
+            this.associationStatus = 'unknown'
+            return
+        }
+
         const bridge = VaultPassphraseBridge.getInstance()
         if (!bridge) {
             this.associationStatus = 'unknown'
@@ -86,6 +84,29 @@ export class KeePassXCSettingsComponent extends BaseComponent implements OnInit,
         }
     }
 
+    async associateWithKeePassXC (): Promise<void> {
+        this.associating = true
+        try {
+            saveSettings(this.platform, this.settings)
+            const bridge = VaultPassphraseBridge.getInstance()
+            if (!bridge) {
+                this.toast.error(Lang.trans('settings.associate_fail'))
+                return
+            }
+
+            const result = await bridge.performAssociate(this.settings)
+            if (result.ok) {
+                this.toast.success(Lang.trans('settings.associate_ok'))
+                this.associationStatus = 'ok'
+            } else {
+                this.toast.error(result.message || Lang.trans('settings.associate_fail'))
+                this.associationStatus = 'fail'
+            }
+        } finally {
+            this.associating = false
+        }
+    }
+
     async testFetch (): Promise<void> {
         this.testing = true
         try {
@@ -106,15 +127,5 @@ export class KeePassXCSettingsComponent extends BaseComponent implements OnInit,
         } finally {
             this.testing = false
         }
-    }
-
-    clearCachedPassphrase (): void {
-        const bridge = VaultPassphraseBridge.getInstance()
-        bridge?.clearCache()
-        this.toast.success(Lang.trans('settings.clear_cache_ok'))
-    }
-
-    defaultAssociationHint (): string {
-        return DEFAULT_ASSOCIATION_FILE
     }
 }
