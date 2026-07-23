@@ -1,0 +1,41 @@
+.form-line {
+    margin-bottom: 1.25rem;
+
+    .header {
+        margin-bottom: 0.5rem;
+
+        .title {
+            font-weight: 500;
+        }
+    }
+
+    small.text-muted {
+        display: block;
+        margin-top: 0.35rem;
+    }
+}
+
+.association-status {
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        border-radius: 4px;
+        background: rgba(128, 128, 128, 0.2);
+
+        &.status-ok {
+            background: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+        }
+
+        &.status-fail {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+        }
+    }
+}
+
+.actions {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(128, 128, 128, 0.2);
+}
